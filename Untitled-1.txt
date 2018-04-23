@@ -1,0 +1,27 @@
+
+
+172.31.36.90            node1
+172.31.38.129           node2
+172.31.35.227           node3
+#xxx.xxx.xxx.xxx        node4
+
+node1: ip-172-31-33-127
+node3: ip-172-31-43-143
+node2: ip-172-31-35-159
+
+python36-3.6.2-5.8.amzn1.x86_64
+
+必要
+時間調整
+
+PasswordAuthentication yes
+
+echo 'all: node1 node2 node3' > /etc/clustershell/groups
+clush -a --copy /etc/hosts
+clush -ab 'yum -y install pciutils dmidecode net-tools ethtool bind-utils'
+
+追加
+
+MapRv6-base-r3
+MapRv6(RHEL7.5,ssh,clush,dnsmasq,java8)
+
