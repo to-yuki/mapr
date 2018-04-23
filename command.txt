@@ -1,0 +1,143 @@
+pre作業
+hostsファイルの編集
+ssh で各ノードへのアクセス
+ssh node1 hostnamectl set-hostname node1
+ssh node2 hostnamectl set-hostname node2
+ssh node3 hostnamectl set-hostname node3
+ssh node4 hostnamectl set-hostname node4
+clush -a --copy /etc/hosts
+ssh node4 reboot
+ssh node3 reboot
+ssh node2 reboot
+ssh node1 reboot
+
+clush -a reboot
+
+-----------------------------------------
+
+wget http://course-files.mapr.com/ADM2000-R2/ClusterTests.zip
+clush -a rpm --import http://package.mapr.com/releases/pub/maprgpg.key
+
+vim /etc/yum.repos.d/maprtech.repo
+
+[maprtech]
+name=MapR Technologies
+baseurl=http://package.mapr.com/releases/v6.0.0/redhat
+enabled=1
+gpgcheck=0
+protect=1
+
+[maprecosystem]
+name=MapR Technologies
+baseurl=http://package.mapr.com/releases/MEP/MEP-4.0.0/redhat
+enabled=1
+gpgcheck=0
+protect=1
+
+clush -a --copy /etc/yum.repos.d/maprtech.repo
+clush -a yum clean all
+clush -a yum repolist
+
+Working with nodes: node[1-3]
+clush> groupadd mapr -g 5000
+clush> useradd mapr -g 5000 -u 5000
+clush> echo "mapr:mapr" | chpasswd
+clush> quit
+ssh mapr@node1 date
+
+ssh mapr@node2 date
+ssh mapr@node3 date
+
+clush -a yum -y install mapr-core mapr-fileserver mapr-nfs mapr-webserver mapr-zookeeper
+ssh node1 yum -y install mapr-cldb
+ssh node2 yum -y install mapr-cldb
+
+clush -ab ls -l /opt/mapr/roles
+
+/opt/mapr/server/configure.sh -C node1, node2 -Z node1, node2, node3 --isvm -N cluster.example.com -secure -genkeys -no-autostart
+
+clush -a --copy /opt/mapr/conf/cldb.key /opt/mapr/conf/maprserverticket /opt/mapr/conf/ssl_keystore /opt/mapr/conf/ssl_truststore
+ssh node2 /opt/mapr/server/configure.sh -C node1,node2 -Z node1,node2,node3 --isvm -N cluster.example.com -secure -no-autostart
+ssh node3 /opt/mapr/server/configure.sh -C node1,node2 -Z node1,node2,node3 --isvm -N cluster.example.com -secure -no-autostart
+
+clush -a chmod 600 /opt/mapr/conf/ssl_keystore
+
+clush -a fdisk -l | grep dev
+clush -a --copy /tmp/disk.list
+clush -a /opt/mapr/server/disksetup -F /tmp/disk.list
+
+clush -a systemctl start mapr-zookeeper
+clush -a systemctl start mapr-warden
+
+clush -a systemctl is-active mapr-zookeeper
+clush -a systemctl is-active mapr-warden
+
+maprlogin password
+    root mapr
+su - mapr
+maprlogin password
+    mapr mapr
+
+ssh root@node2 'echo mapr | maprlogin password'
+ssh mapr@node2 'echo mapr | maprlogin password'
+ssh root@node3 'echo mapr | maprlogin password'
+ssh mapr@node3 'echo mapr | maprlogin password'
+
+maprcli license showid
+
+clush> mkdir /mapr
+clush> echo 127.0.0.1:/mapr /mapr hard,nolock >> /opt/mapr/conf/mapr_fstab
+clush> quit
+
+clush -a cat /opt/mapr/conf/mapr_fstab
+maprcli node services -nfs restart -nodes node1 node2 node3
+clush -a ls /mapr
+clush -a ls /mapr/cluster.example.com/
+
+
+clush -Ba /root/labfiles/post-install/runRWSpeedTest.sh |tee RWtest.log
+
+ls /mapr/cluster.example.com
+
+maprcli
+maprcli service
+maprcli service list -node `hostname -f`
+maprcli service list -node `hostname -f` -json
+
+maprcli node list -json | grep topo
+maprcli node list -columns id
+maprcli node move -serverids xxx,xxx,xxx -topology /data/default-rack
+
+mkdir -p /mapr/cluster.example.com/projects/mkt/miner
+mkdir -p /mapr/cluster.example.com/projects/dev/cobra
+ls -R /mapr/cluster.example.com/projects/
+
+
+maprcli volume create -name cobra-dev -path /projects/dev/cobra/cobra-dev -advisoryquota 70G -quota 100G -aetype 0 -ae mark
+maprcli volume create -name cobra-prod -path /projects/dev/cobra/cobra-prod -advisoryquota 100G -quota 130G -aetype 0 -ae mark
+
+chgrp -R mkt /mapr/cluster.example.com/projects/mkt/
+chgrp -R dev /mapr/cluster.example.com/projects/dev/
+
+ls -lR /mapr/cluster.example.com/projects
+
+maprcli acl edit -type volume -name cobra-dev -group dev:dump,restore
+maprcli acl edit -type volume -name cobra-prod -group dev:dump,restore -user mark:a,fc
+
+maprcli volume create -name sharon-home -mount 1 -path /user/sharon -aetype 1 -ae mkt
+maprcli acl edit -type volume -name sharon-home -group mkt:dump,restore -user sharon:a,fc
+chown sharon:mkt /mapr/cluster.example.com/user/sharon
+
+maprcli volume create -name marje-home -mount 1 -path /user/marje -aetype 1 -ae mkt
+maprcli acl edit -type volume -name marje-home -group mkt:dump,restore -user marje:a,fc
+chown marje:mkt /mapr/cluster.example.com/user/marje
+
+maprcli volume create -name jenn-home -mount 1 -path /user/jenn -aetype 1 -ae dev
+maprcli acl edit -type volume -name jenn-home -group dev:dump,restore -user jenn:a,fc
+chown jenn:dev /mapr/cluster.example.com/user/jenn
+
+maprcli volume create -name mark-home -mount 1 -path /user/mark -aetype 1 -ae dev
+maprcli acl edit -type volume -name mark-home -group dev:dump,restore -user mark:a,fc
+chown mark:dev /mapr/cluster.example.com/user/mark
+
+
